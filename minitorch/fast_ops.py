@@ -30,6 +30,7 @@ Fn = TypeVar("Fn")
 
 
 def njit(fn: Fn, **kwargs: Any) -> Fn:
+    """Wrapper for Numba JIT compilation."""
     return _njit(inline="always", **kwargs)(fn)  # type: ignore
 
 
@@ -221,12 +222,12 @@ def tensor_zip(
         b_shape: Shape,
         b_strides: Strides,
     ) -> None:
-         if list(a_strides) == list(b_strides) == list(out_strides) and list(
+        if list(a_strides) == list(b_strides) == list(out_strides) and list(
             a_shape
         ) == list(b_shape) == list(out_shape):
             for i in prange(len(out)):
                 out[i] = fn(a_storage[i], b_storage[i])
-         else:
+        else:
             for out_idx in prange(len(out)):
                 out_midx = np.zeros(MAX_DIMS, np.int32)
                 a_midx = np.zeros(MAX_DIMS, np.int32)
@@ -276,25 +277,16 @@ def tensor_reduce(
     ) -> None:
         out_size: int = len(out)
         reduce_size: int = a_shape[reduce_dim]
-        # Main loop in parallel
         for i in prange(out_size):
-            # All indices use numpy buffers
-            # out_index: Index = np.zeros_like(out_shape, dtype=np.int32)
             out_index: Index = np.zeros(MAX_DIMS, dtype=np.int32)
-            # The index of out[i]
             to_index(i, out_shape, out_index)
-            # The starting position in a to be reduced
             a_ordinal = index_to_position(out_index, a_strides)
-            # Initialize the reduced value of a[i]
             reduced_val = out[i]
-            # Inner-loop should not call any functions or write non-local variables
             for j in range(reduce_size):
-                # Calculate the reduced value of a[i]
                 reduced_val = fn(
                     reduced_val,
-                    a_storage[a_ordinal + j * a_strides[reduce_dim]],
+                    a_storage[int(a_ordinal) + int(j) * int(a_strides[reduce_dim])],
                 )
-            # Put the reduced data into out
             out[i] = reduced_val
 
     return njit(_reduce, parallel=True)  # type: ignore
