@@ -268,22 +268,28 @@ def tensor_reduce(
         a_strides: Strides,
         reduce_dim: int,
     ) -> None:
-        red_size = a_shape[reduce_dim]
-        red_stride = a_strides[reduce_dim]
-        for i in prange(len(out)):  # Main loop in parallel
-            out_index: Index = np.empty(
-                MAX_DIMS, np.int32
-            )  # All indices use numpy buffers
+        out_size: int = len(out)
+        reduce_size: int = a_shape[reduce_dim]
+        # Main loop in parallel
+        for i in prange(out_size):
+            # All indices use numpy buffers
+            # out_index: Index = np.zeros_like(out_shape, dtype=np.int32)
+            out_index: Index = np.zeros(MAX_DIMS, dtype=np.int32)
+            # The index of out[i]
             to_index(i, out_shape, out_index)
-            o = index_to_position(out_index, out_strides)
-            j = index_to_position(out_index, a_strides)
-            temp = out[o]
-            for _ in range(
-                red_size
-            ):  # Loop not in parallel/ Inner Loop has no functions
-                temp = fn(temp, a_storage[j])
-                j += red_stride
-            out[o] = temp
+            # The starting position in a to be reduced
+            a_ordinal = index_to_position(out_index, a_strides)
+            # Initialize the reduced value of a[i]
+            reduced_val = out[i]
+            # Inner-loop should not call any functions or write non-local variables
+            for j in range(reduce_size):
+                # Calculate the reduced value of a[i]
+                reduced_val = fn(
+                    reduced_val,
+                    a_storage[a_ordinal + j * a_strides[reduce_dim]],
+                )
+            # Put the reduced data into out
+            out[i] = reduced_val
 
     return njit(_reduce, parallel=True)  # type: ignore
 
