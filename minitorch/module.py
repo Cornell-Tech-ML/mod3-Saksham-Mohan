@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 
 class Module:
@@ -29,13 +29,25 @@ class Module:
         m: Dict[str, Module] = self.__dict__["_modules"]
         return list(m.values())
 
+    def dfs_helper(self, mode: bool) -> None:
+        """Helper function that recursively sets the training mode for the current module and all its child modules.
+
+        Args:
+        ----
+        mode (bool): Specifies the value to set the traning mode to. True if its in Train mode, False if in eval mode
+
+        """
+        self.training = mode
+        for child in self.modules():
+            child.dfs_helper(mode)
+
     def train(self) -> None:
-        """Set the mode of this module and all descendent modules to `train`."""
-        raise NotImplementedError("Need to include this file from past assignment.")
+        """Set the `training` flag of this and descendent to true."""
+        self.dfs_helper(True)
 
     def eval(self) -> None:
-        """Set the mode of this module and all descendent modules to `eval`."""
-        raise NotImplementedError("Need to include this file from past assignment.")
+        """Set the `training` flag of this and descendent to false."""
+        self.dfs_helper(False)
 
     def named_parameters(self) -> Sequence[Tuple[str, Parameter]]:
         """Collect all the parameters of this module and its descendents.
@@ -45,11 +57,39 @@ class Module:
             The name and `Parameter` of each ancestor parameter.
 
         """
-        raise NotImplementedError("Need to include this file from past assignment.")
+
+        def named_parameters_helper(
+            module: Module, acc: List[Tuple[str, Parameter]], current_hierarchy: str
+        ) -> None:
+            for name, param in module._parameters.items():
+                if current_hierarchy:
+                    acc.append((current_hierarchy + "." + name, param))
+                else:
+                    acc.append((name, param))
+
+            for name, child in module._modules.items():
+                if current_hierarchy:
+                    named_parameters_helper(child, acc, current_hierarchy + "." + name)
+                else:
+                    named_parameters_helper(child, acc, name)
+
+        params = []
+        named_parameters_helper(self, params, "")
+        return params
 
     def parameters(self) -> Sequence[Parameter]:
         """Enumerate over all the parameters of this module and its descendents."""
-        raise NotImplementedError("Need to include this file from past assignment.")
+
+        def parameters_helper(module: Module, acc: List[Parameter]) -> None:
+            for param in module._parameters.values():
+                acc.append(param)
+
+            for child in module._modules.values():
+                parameters_helper(child, acc)
+
+        params = []
+        parameters_helper(self, params)
+        return params
 
     def add_parameter(self, k: str, v: Any) -> Parameter:
         """Manually add a parameter. Useful helper for scalar parameters.
@@ -85,6 +125,22 @@ class Module:
         return None
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        """Calls the `forward` method with the given arguments.
+
+        This method allows instances of the class to be called like a function,
+        delegating to the `forward` method with the provided arguments.
+
+        Args:
+        ----
+        *args (any): Positional arguments to pass to `forward`.
+
+        **kwargs (any): Keyword arguments to pass to `forward`.
+
+        Returns:
+        -------
+        - The result of the `forward` method.
+
+        """
         return self.forward(*args, **kwargs)
 
     def __repr__(self) -> str:
