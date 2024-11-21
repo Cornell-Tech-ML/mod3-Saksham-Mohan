@@ -223,30 +223,17 @@ def tensor_zip(
         b_shape: Shape,
         b_strides: Strides,
     ) -> None:
-        if list(a_strides) == list(b_strides) == list(out_strides) and list(
-            a_shape
-        ) == list(b_shape) == list(out_shape):
-            for i in prange(len(out)):
-                out[i] = fn(a_storage[i], b_storage[i])
+         for out_idx in prange(len(out)):
+            out_midx = np.zeros(MAX_DIMS, np.int32)
+            a_midx = np.zeros(MAX_DIMS, np.int32)
+            b_midx = np.zeros(MAX_DIMS, np.int32)
+            to_index(out_idx, out_shape, out_midx)
+            broadcast_index(out_midx, out_shape, a_shape, a_midx)
+            broadcast_index(out_midx, out_shape, b_shape, b_midx)
 
-        else:
-            for i in prange(len(out)):  # Main loop in parallel
-                out_index: Index = np.empty(
-                    MAX_DIMS, np.int32
-                )  # All indices use numpy buffers
-                a_index: Index = np.empty(
-                    MAX_DIMS, np.int32
-                )  # All indices use numpy buffers
-                b_index: Index = np.empty(
-                    MAX_DIMS, np.int32
-                )  # All indices use numpy buffers
-                to_index(i, out_shape, out_index)
-                o = index_to_position(out_index, out_strides)
-                broadcast_index(out_index, out_shape, a_shape, a_index)
-                j = index_to_position(a_index, a_strides)
-                broadcast_index(out_index, out_shape, b_shape, b_index)
-                k = index_to_position(b_index, b_strides)
-                out[o] = fn(a_storage[j], b_storage[k])
+            a_idx = index_to_position(a_midx, a_strides)
+            b_idx = index_to_position(b_midx, b_strides)
+            out[index_to_position(out_midx, out_strides)] = fn(a_storage[a_idx], b_storage[b_idx])
 
     return njit(_zip, parallel=True)  # type: ignore
 
