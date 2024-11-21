@@ -67,7 +67,7 @@ def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
 
     """
     ordinal = ordinal + 0
-    for dim in range(len(shape)-1, -1, -1):
+    for dim in range(len(shape) - 1, -1, -1):
         out_index[dim] = ordinal % shape[dim]
         ordinal = ordinal // shape[dim]
 
@@ -124,13 +124,12 @@ def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
     max_dims = min(MAX_DIMS, max(len(shape1), len(shape2)))
     new_shape = tuple()
 
-    for dim in range(1, max_dims+1):
-
+    for dim in range(1, max_dims + 1):
         sz1 = shape1[-dim] if len(shape1) >= dim else 1
         sz2 = shape2[-dim] if len(shape2) >= dim else 1
         if sz1 != 1 and sz2 != 1 and sz1 != sz2:
             raise IndexingError(f"Cannot broadcast dimensions: {sz1} and {sz2}")
-        
+
         new_shape = (max(sz1, sz2), *new_shape)
 
     if len(new_shape) > MAX_DIMS:

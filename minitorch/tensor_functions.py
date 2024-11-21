@@ -194,6 +194,7 @@ class Log(Function):
         (t1,) = ctx.saved_tensors
         return grad_output.f.log_back_zip(t1, grad_output)
 
+
 class Exp(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
@@ -269,6 +270,7 @@ class IsClose(Function):
     def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
         """Check if elements of two Tensors are close within a tolerance."""
         return t1.f.is_close_zip(t1, t2)
+
 
 class Permute(Function):
     @staticmethod

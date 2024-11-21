@@ -401,7 +401,7 @@ class Tensor:
     def __lt__(self, b: TensorLike) -> Tensor:
         return LT.apply(self, self._ensure_tensor(b))
 
-    def __eq__(self, b: TensorLike) -> Tensor: # type: ignore[override]
+    def __eq__(self, b: TensorLike) -> Tensor:  # type: ignore[override]
         return EQ.apply(self, self._ensure_tensor(b))
 
     def __gt__(self, b: TensorLike) -> Tensor:
@@ -432,7 +432,7 @@ class Tensor:
             return All.apply(self, Tensor.make([dim], (1,), backend=self.backend))
 
     # def is_close(self, b: TensorLike, tol: float = 1e-5) -> Tensor:
-   
+
     #     return IsClose.apply(self, self._ensure_tensor(b), self._ensure_tensor(tol))
     def is_close(self, y: Tensor) -> Tensor:
         """Check if elements of two Tensors are close within a tolerance.

@@ -297,7 +297,7 @@ def tensor_reduce(
                 temp = fn(temp, a_storage[j])
                 j += red_stride
             out[o] = temp
-            
+
     return njit(_reduce, parallel=True)  # type: ignore
 
 
@@ -346,7 +346,7 @@ def _tensor_matrix_multiply(
     """
     a_batch_stride = a_strides[0] if a_shape[0] > 1 else 0
     b_batch_stride = b_strides[0] if b_shape[0] > 1 else 0
-    K = a_shape[-1] 
+    K = a_shape[-1]
     batch, row, col = out_shape[-3:]
 
     for i in prange(batch):
@@ -360,7 +360,9 @@ def _tensor_matrix_multiply(
                     ret += a_storage[a_ord] * b_storage[b_ord]
                     a_ord += a_strides[-1]
                     b_ord += b_strides[-2]
-                out_ord = i * out_strides[-3] + j * out_strides[-2] + k * out_strides[-1]
+                out_ord = (
+                    i * out_strides[-3] + j * out_strides[-2] + k * out_strides[-1]
+                )
                 out[out_ord] = ret
 
 

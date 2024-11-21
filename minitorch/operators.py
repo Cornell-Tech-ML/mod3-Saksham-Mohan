@@ -76,7 +76,9 @@ def relu(x: float) -> float:
     """Return `x` if it is positive, else return `0`. This is the ReLU activation function."""
     return x if x > 0 else 0.0
 
+
 EPS = 1e-6
+
 
 def log(x: float) -> float:
     """Return the natural logarithm of `x`. Raises a ValueError if `x` is less than or equal to 0."""
