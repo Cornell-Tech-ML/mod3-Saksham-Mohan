@@ -29,12 +29,12 @@ FakeCUDAKernel = Any
 Fn = TypeVar("Fn")
 
 
-def device_jit(fn: Fn, **kwargs: dict[str, Any]) -> Fn:
+def device_jit(fn: Fn, **kwargs: Any) -> Fn:
     """Wrapper for JIT compilation on CUDA devices."""
     return _jit(device=True, **kwargs)(fn)  # type: ignore
 
 
-def jit(fn: Fn, **kwargs: dict[str, Any]) -> FakeCUDAKernel:
+def jit(fn: Fn, **kwargs: Any) -> FakeCUDAKernel:
     """Wrapper for JIT compilation."""
     return _jit(**kwargs)(fn)  # type: ignore
 
