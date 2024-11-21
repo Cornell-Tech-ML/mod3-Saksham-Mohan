@@ -176,7 +176,7 @@ def tensor_map(
             for out_idx in prange(len(out)):
                 out_midx = np.zeros(MAX_DIMS, np.int32)
                 in_midx = np.zeros(MAX_DIMS, np.int32)
-                
+
                 # convert multidimensional index for the output
                 to_index(out_idx, out_shape, out_midx)
                 broadcast_index(out_midx, out_shape, in_shape, in_midx)
@@ -221,17 +221,25 @@ def tensor_zip(
         b_shape: Shape,
         b_strides: Strides,
     ) -> None:
-         for out_idx in prange(len(out)):
-            out_midx = np.zeros(MAX_DIMS, np.int32)
-            a_midx = np.zeros(MAX_DIMS, np.int32)
-            b_midx = np.zeros(MAX_DIMS, np.int32)
-            to_index(out_idx, out_shape, out_midx)
-            broadcast_index(out_midx, out_shape, a_shape, a_midx)
-            broadcast_index(out_midx, out_shape, b_shape, b_midx)
+         if list(a_strides) == list(b_strides) == list(out_strides) and list(
+            a_shape
+        ) == list(b_shape) == list(out_shape):
+            for i in prange(len(out)):
+                out[i] = fn(a_storage[i], b_storage[i])
+         else:
+            for out_idx in prange(len(out)):
+                out_midx = np.zeros(MAX_DIMS, np.int32)
+                a_midx = np.zeros(MAX_DIMS, np.int32)
+                b_midx = np.zeros(MAX_DIMS, np.int32)
+                to_index(out_idx, out_shape, out_midx)
+                broadcast_index(out_midx, out_shape, a_shape, a_midx)
+                broadcast_index(out_midx, out_shape, b_shape, b_midx)
 
-            a_idx = index_to_position(a_midx, a_strides)
-            b_idx = index_to_position(b_midx, b_strides)
-            out[index_to_position(out_midx, out_strides)] = fn(a_storage[a_idx], b_storage[b_idx])
+                a_idx = index_to_position(a_midx, a_strides)
+                b_idx = index_to_position(b_midx, b_strides)
+                out[index_to_position(out_midx, out_strides)] = fn(
+                    a_storage[a_idx], b_storage[b_idx]
+                )
 
     return njit(_zip, parallel=True)  # type: ignore
 

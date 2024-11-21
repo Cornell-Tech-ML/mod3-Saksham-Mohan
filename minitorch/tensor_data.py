@@ -121,22 +121,22 @@ def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
     """
     a, b = shape1, shape2
     m = max(len(a), len(b))
-    c_rev = [0] * m 
+    c_rev = [0] * m
     a_rev = list(reversed(a))
     b_rev = list(reversed(b))
     for i in range(m):
-        if i >= len(a): 
+        if i >= len(a):
             c_rev[i] = b_rev[i]
         elif i >= len(b):
             c_rev[i] = a_rev[i]
-        else: 
+        else:
             c_rev[i] = max(a_rev[i], b_rev[i])
-            if a_rev[i] != c_rev[i] and a_rev[i] != 1: 
+            if a_rev[i] != c_rev[i] and a_rev[i] != 1:
                 raise IndexingError(f"Broadcast Failure {a} {b}")
-            if b_rev[i] != c_rev[i] and b_rev[i] != 1: 
+            if b_rev[i] != c_rev[i] and b_rev[i] != 1:
                 raise IndexingError(f"Broadcast Failure {a} {b}")
     return tuple(reversed(c_rev))
-            
+
 
 def strides_from_shape(shape: UserShape) -> UserStrides:
     """Return a contiguous stride for a shape"""
@@ -328,7 +328,11 @@ class TensorData:
             range(len(self.shape))
         ), f"Must give a position to each dimension. Shape: {self.shape} Order: {order}"
 
-        return TensorData(self._storage, tuple([self.shape[o] for o in order]), tuple([self._strides[o] for o in order]))
+        return TensorData(
+            self._storage,
+            tuple([self.shape[o] for o in order]),
+            tuple([self._strides[o] for o in order]),
+        )
 
     def to_string(self) -> str:
         """Convert to string"""

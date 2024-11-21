@@ -230,6 +230,7 @@ def tensor_zip(
             k = index_to_position(b_index, b_strides)
             temp = fn(a_storage[j], b_storage[k])
             out[o] = temp
+
     return cuda.jit()(_zip)  # type: ignore
 
 
@@ -272,6 +273,7 @@ def _sum_practice(out: Storage, a: Storage, size: int) -> None:
                 cuda.syncthreads()
     if pos == 0 and i < size:
         out[block] = cache[0]
+
 
 jit_sum_practice = cuda.jit()(_sum_practice)
 
@@ -322,22 +324,17 @@ def tensor_reduce(
         local_i = out_index[reduce_dim] * cuda.blockDim.x + cuda.threadIdx.x
         a_red = a_shape[reduce_dim]
 
-
-        if local_i < a_red:  
-            out_index[
-                reduce_dim
-            ] = local_i 
-            cache[pos] = a_storage[
-                index_to_position(out_index, a_strides)
-            ]  
-            cuda.syncthreads()  
+        if local_i < a_red:
+            out_index[reduce_dim] = local_i
+            cache[pos] = a_storage[index_to_position(out_index, a_strides)]
+            cuda.syncthreads()
 
         if local_i < a_red and pos == 0:
-            acc = reduce_value  
-            for i in range(a_red):  
-                acc = fn(acc, cache[i]) 
+            acc = reduce_value
+            for i in range(a_red):
+                acc = fn(acc, cache[i])
 
-            out[out_pos] = acc  
+            out[out_pos] = acc
 
     return jit(_reduce)  # type: ignore
 
