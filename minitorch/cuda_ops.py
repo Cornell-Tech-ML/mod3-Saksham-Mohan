@@ -173,15 +173,11 @@ def tensor_map(
         out_index = cuda.local.array(MAX_DIMS, numba.int32)
         in_index = cuda.local.array(MAX_DIMS, numba.int32)
         i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
-        
+
         if i < out_size:
             to_index(i, out_shape, out_index)
             broadcast_index(out_index, out_shape, in_shape, in_index)
-
-            in_ord = index_to_position(in_index, in_strides)
-            out_ord = index_to_position(out_index, out_strides)
-
-            out[out_ord] = fn(in_storage[in_ord])
+            out[index_to_position(out_index, out_strides)] = fn(in_storage[index_to_position(in_index, in_strides)])
 
     return cuda.jit()(_map)  # type: ignore
 
@@ -227,12 +223,9 @@ def tensor_zip(
             to_index(i, out_shape, out_index)
             broadcast_index(out_index, out_shape, a_shape, a_index)
             broadcast_index(out_index, out_shape, b_shape, b_index)
-
-            a_ord = index_to_position(a_index, a_strides)
-            b_ord = index_to_position(b_index, b_strides)
-            out_ord = index_to_position(out_index, out_strides)
-
-            out[out_ord] = fn(a_storage[a_ord], b_storage[b_ord])
+            a_data = a_storage[index_to_position(a_index, a_strides)]
+            b_data = b_storage[index_to_position(b_index, b_strides)]
+            out[index_to_position(out_index, out_strides)] = fn(a_data, b_data)
 
     return cuda.jit()(_zip)  # type: ignore
 
@@ -265,27 +258,18 @@ def _sum_practice(out: Storage, a: Storage, size: int) -> None:
     pos = cuda.threadIdx.x
 
     if i < size:
-        # Load data into shared memory
-        cache[pos] = a[i]
-    else:
-        # Threads outside bounds contribute 0
-        cache[pos] = 0.0
-
-    # Synchronize threads to ensure all data is loaded
-    cuda.syncthreads()
-
-    # Perform reduction within the block
-    stride = 1
-    while stride < BLOCK_DIM:
-        if pos % (2 * stride) == 0:
-            cache[pos] += cache[pos + stride]
-        stride *= 2
+        value = float(a[i])
+        cache[pos] = value
         cuda.syncthreads()
-
-    # Store the result in `out` (only thread 0 writes)
-    if pos == 0:
-        out[cuda.blockIdx.x] = cache[0]
-
+    else:
+        cache[pos] = 0.0
+    if i < size:
+        for j in [1, 2, 4, 8, 16]:
+            if pos % (j * 2) == 0:
+                cache[pos] += cache[pos + j]
+                cuda.syncthreads()
+        if pos == 0:
+            out[cuda.blockIdx.x] = cache[0]
 
 jit_sum_practice = cuda.jit()(_sum_practice)
 
@@ -328,56 +312,29 @@ def tensor_reduce(
         reduce_dim: int,
         reduce_value: float,
     ) -> None:
-        BLOCK_DIM = 1024  # Number of threads per block
-        cache = cuda.shared.array(BLOCK_DIM, numba.float64)  # Shared memory for reduction
-        out_index = cuda.local.array(MAX_DIMS, numba.int32)  # Local array for output index
-
-        # Identify thread and block indices
+        BLOCK_DIM = 1024
+        cache = cuda.shared.array(BLOCK_DIM, numba.float64)
+        out_index = cuda.local.array(MAX_DIMS, numba.int32)
+        out_pos = cuda.blockIdx.x
         pos = cuda.threadIdx.x
-        block = cuda.blockIdx.x
-        grid_stride = cuda.gridDim.x * cuda.blockDim.x
-        i = block * cuda.blockDim.x + pos
 
-        # Initialize shared memory cache
         cache[pos] = reduce_value
+        if out_pos < out_size:
+            to_index(out_pos, out_shape, out_index)
+            dim = a_shape[reduce_dim]
+            out_index[reduce_dim] = out_index[reduce_dim] * BLOCK_DIM + pos
 
-        while i < out_size:
-            # Convert flat index to multi-dimensional index
-            to_index(i, out_shape, out_index)
-
-            # Compute input index for this thread
-            in_index = cuda.local.array(MAX_DIMS, numba.int32)
-            for d in range(len(out_shape)):
-                if d == reduce_dim:
-                    in_index[d] = 0  # Start from the beginning of the reduce dimension
-                else:
-                    in_index[d] = out_index[d]
-
-            # Reduce along the specified dimension
-            reduction_result = reduce_value
-            for j in range(a_shape[reduce_dim]):
-                in_index[reduce_dim] = j
-                in_pos = index_to_position(in_index, a_strides)
-                reduction_result = fn(reduction_result, a_storage[in_pos])
-
-            cache[pos] = reduction_result
-            i += grid_stride
-
-        # Synchronize threads within the block
-        cuda.syncthreads()
-
-        # Perform reduction in shared memory
-        stride = 1
-        while stride < BLOCK_DIM:
-            if pos % (2 * stride) == 0 and (pos + stride) < BLOCK_DIM:
-                cache[pos] = fn(cache[pos], cache[pos + stride])
-            stride *= 2
-            cuda.syncthreads()
-
-        # Write the result of the reduction to the output tensor
-        if pos == 0:
-            out_pos = index_to_position(out_index, out_strides)  # Compute flattened position
-            out[out_pos] = cache[0]  # Store the reduced value
+            if out_index[reduce_dim] < dim:
+                cache[pos] = a_storage[index_to_position(out_index, a_strides)]
+                cuda.syncthreads()
+                idx = 0
+                while 2 ** idx < BLOCK_DIM:
+                    if pos % ((2 ** idx) * 2) == 0:
+                        cache[pos] = fn(cache[pos], cache[pos + (2 ** idx)])
+                        cuda.syncthreads()
+                    idx += 1
+            if pos == 0:
+                out[index_to_position(out_index, out_strides)] = cache[0]
 
     return jit(_reduce)  # type: ignore
 
