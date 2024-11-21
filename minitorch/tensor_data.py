@@ -47,8 +47,8 @@ def index_to_position(index: Index, strides: Strides) -> int:
 
     """
     position = 0
-    for i in range(len(index)):
-        position += strides[i] * index[i]
+    for ind, stride in zip(index, strides):
+        position += ind * stride
 
     return position
 
@@ -66,10 +66,11 @@ def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
         out_index : return index corresponding to position.
 
     """
-    ordinal = ordinal + 0
-    for dim in range(len(shape) - 1, -1, -1):
-        out_index[dim] = ordinal % shape[dim]
-        ordinal = ordinal // shape[dim]
+    curr_ord = ordinal + 0
+    for i in range(len(shape) - 1, -1, -1):
+        sh = shape[i]
+        out_index[i] = int(curr_ord % sh)
+        curr_ord = curr_ord // sh
 
 
 def broadcast_index(
@@ -118,25 +119,24 @@ def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
         IndexingError : if cannot broadcast
 
     """
-    if len(shape1) > MAX_DIMS or len(shape2) > MAX_DIMS:
-        raise IndexingError("Shape exceeds maximum dimensions allowed")
-
-    max_dims = min(MAX_DIMS, max(len(shape1), len(shape2)))
-    new_shape = tuple()
-
-    for dim in range(1, max_dims + 1):
-        sz1 = shape1[-dim] if len(shape1) >= dim else 1
-        sz2 = shape2[-dim] if len(shape2) >= dim else 1
-        if sz1 != 1 and sz2 != 1 and sz1 != sz2:
-            raise IndexingError(f"Cannot broadcast dimensions: {sz1} and {sz2}")
-
-        new_shape = (max(sz1, sz2), *new_shape)
-
-    if len(new_shape) > MAX_DIMS:
-        raise IndexingError("Resulting shape exceeds maximum dimensions allowed")
-
-    return new_shape
-
+    a, b = shape1, shape2
+    m = max(len(a), len(b))
+    c_rev = [0] * m 
+    a_rev = list(reversed(a))
+    b_rev = list(reversed(b))
+    for i in range(m):
+        if i >= len(a): 
+            c_rev[i] = b_rev[i]
+        elif i >= len(b):
+            c_rev[i] = a_rev[i]
+        else: 
+            c_rev[i] = max(a_rev[i], b_rev[i])
+            if a_rev[i] != c_rev[i] and a_rev[i] != 1: 
+                raise IndexingError(f"Broadcast Failure {a} {b}")
+            if b_rev[i] != c_rev[i] and b_rev[i] != 1: 
+                raise IndexingError(f"Broadcast Failure {a} {b}")
+    return tuple(reversed(c_rev))
+            
 
 def strides_from_shape(shape: UserShape) -> UserStrides:
     """Return a contiguous stride for a shape"""
@@ -328,13 +328,7 @@ class TensorData:
             range(len(self.shape))
         ), f"Must give a position to each dimension. Shape: {self.shape} Order: {order}"
 
-        new_shape = []
-        new_strides = []
-        for i in order:
-            new_shape.append(self.shape[i])
-            new_strides.append(self.strides[i])
-
-        return TensorData(self._storage, tuple(new_shape), tuple(new_strides))
+        return TensorData(self._storage, tuple([self.shape[o] for o in order]), tuple([self._strides[o] for o in order]))
 
     def to_string(self) -> str:
         """Convert to string"""

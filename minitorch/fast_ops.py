@@ -173,18 +173,16 @@ def tensor_map(
                 out[i] = fn(in_storage[i])
 
         else:
-            for i in prange(len(out)):  # Main loop in parallel
-                out_index: Index = np.empty(
-                    MAX_DIMS, np.int32
-                )  # All indices use numpy buffers
-                in_index: Index = np.empty(
-                    MAX_DIMS, np.int32
-                )  # All indices use numpy buffers
-                to_index(i, out_shape, out_index)
-                broadcast_index(out_index, out_shape, in_shape, in_index)
-                o = index_to_position(out_index, out_strides)
-                j = index_to_position(in_index, in_strides)
-                out[o] = fn(in_storage[j])
+            for out_idx in prange(len(out)):
+                out_midx = np.zeros(MAX_DIMS, np.int32)
+                in_midx = np.zeros(MAX_DIMS, np.int32)
+                
+                # convert multidimensional index for the output
+                to_index(out_idx, out_shape, out_midx)
+                broadcast_index(out_midx, out_shape, in_shape, in_midx)
+
+                in_idx = index_to_position(in_midx, in_strides)
+                out[index_to_position(out_midx, out_strides)] = fn(in_storage[in_idx])
 
     return njit(_map, parallel=True)  # type: ignore
 
