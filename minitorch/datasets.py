@@ -5,8 +5,19 @@ from typing import List, Tuple
 
 
 def make_pts(N: int) -> List[Tuple[float, float]]:
+    """Generates a list of N random 2D points.
+
+    Args:
+    ----
+    N: Number of points to generate.
+
+    Returns:
+    -------
+    - A list of tuples, each containing two random float values representing a point.
+
+    """
     X = []
-    for i in range(N):
+    for _ in range(N):
         x_1 = random.random()
         x_2 = random.random()
         X.append((x_1, x_2))
@@ -21,6 +32,17 @@ class Graph:
 
 
 def simple(N: int) -> Graph:
+    """Creates a Graph with points and labels based on a simple threshold
+
+    Args:
+    ----
+    N: Number of points to generate.
+
+    Returns:
+    -------
+    - A Graph object with generated points and labels where the label is 1 if x_1 < 0.5, else 0.
+
+    """
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
@@ -30,6 +52,17 @@ def simple(N: int) -> Graph:
 
 
 def diag(N: int) -> Graph:
+    """Creates a Graph with points and labels based on the sum of coordinates.
+
+    Args:
+    ----
+    N: Number of points to generate.
+
+    Returns:
+    -------
+    - A Graph object with generated points and labels where the label is 1 if x_1 + x_2 < 0.5, else 0.
+
+    """
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
@@ -39,6 +72,17 @@ def diag(N: int) -> Graph:
 
 
 def split(N: int) -> Graph:
+    """Creates a Graph with points and labels based on x_1 coordinate thresholds.
+
+    Args:
+    ----
+    N: Number of points to generate.
+
+    Returns:
+    -------
+    - A Graph object with generated points and labels where the label is 1 if x_1 < 0.2 or x_1 > 0.8, else 0.
+
+    """
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
@@ -48,25 +92,59 @@ def split(N: int) -> Graph:
 
 
 def xor(N: int) -> Graph:
+    """Creates a Graph with points and labels based on XOR-like logic.
+
+    Args:
+    ----
+    N: Number of points to generate.
+
+    Returns:
+    -------
+    - A Graph object with generated points and labels where the label is 1 if x_1 and x_2 are in different halves, else 0.
+
+    """
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
-        y1 = 1 if ((x_1 < 0.5 and x_2 > 0.5) or (x_1 > 0.5 and x_2 < 0.5)) else 0
+        y1 = 1 if x_1 < 0.5 and x_2 > 0.5 or x_1 > 0.5 and x_2 < 0.5 else 0
         y.append(y1)
     return Graph(N, X, y)
 
 
 def circle(N: int) -> Graph:
+    """Creates a Graph with points and labels based on a circular boundary.
+
+    Args:
+    ----
+    N: Number of points to generate.
+
+    Returns:
+    -------
+    - A Graph object with generated points and labels where the label is 1 if the point is outside a circle of radius sqrt(0.1), else 0.
+
+    """
     X = make_pts(N)
     y = []
     for x_1, x_2 in X:
-        x1, x2 = (x_1 - 0.5, x_2 - 0.5)
+        x1, x2 = x_1 - 0.5, x_2 - 0.5
         y1 = 1 if x1 * x1 + x2 * x2 > 0.1 else 0
         y.append(y1)
     return Graph(N, X, y)
 
 
 def spiral(N: int) -> Graph:
+    """Creates a Graph with points arranged in a spiral pattern and binary labels.
+
+    Args:
+    ----
+    N: Number of points to generate.
+
+    Returns:
+    -------
+    - A Graph object with generated spiral points and labels where the first half of the points have label 0 and the second half have label 1.
+
+    """
+
     def x(t: float) -> float:
         return t * math.cos(t) / 20.0
 
