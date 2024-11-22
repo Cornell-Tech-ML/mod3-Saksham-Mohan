@@ -491,22 +491,34 @@ def _tensor_matrix_multiply(
     #    a) Copy into shared memory for a matrix.
     #    b) Copy into shared memory for b matrix
     #    c) Compute the dot produce for position c[i, j]
+    # Initialize the accumulator for the dot product. This is local to the thread.
     accum = 0.0
+
+    # Loop over the shared dimension in chunks of BLOCK_DIM to load data into shared memory.
     for idx in range(0, a_shape[2], BLOCK_DIM):
+        # Load a block of the A matrix into shared memory, if within bounds.
         k = idx + pj
         if i < a_shape[1] and k < a_shape[2]:
             a_shared[pi, pj] = a_storage[
                 a_batch_stride * batch + a_strides[1] * i + a_strides[2] * k
             ]
+
+        # Load a block of the B matrix into shared memory, if within bounds.
         k = idx + pi
         if j < b_shape[2] and k < b_shape[1]:
             b_shared[pi, pj] = b_storage[
                 b_batch_stride * batch + b_strides[2] * j + b_strides[1] * k
             ]
+
+        # Synchronize threads to ensure shared memory is fully loaded before computation.
         cuda.syncthreads()
+
+        # Perform the dot product for the current block using shared memory.
         for k in range(BLOCK_DIM):
-            if (idx + k) < a_shape[2]:
+            if (idx + k) < a_shape[2]:  # Ensure we don't exceed matrix bounds.
                 accum += a_shared[pi, k] * b_shared[k, pj]
+
+    # Write the final result to global memory, ensuring only one write per kernel.
     if i < out_shape[1] and j < out_shape[2]:
         out[out_strides[0] * batch + out_strides[1] * i + out_strides[2] * j] = accum
 
